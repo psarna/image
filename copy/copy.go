@@ -194,6 +194,7 @@ func Image(ctx context.Context, policyContext *signature.PolicyContext, destRef,
 		options = &Options{}
 	}
 
+	logrus.Info("validateImageListSelection")
 	if err := validateImageListSelection(options.ImageListSelection); err != nil {
 		return nil, err
 	}
@@ -218,17 +219,22 @@ func Image(ctx context.Context, policyContext *signature.PolicyContext, destRef,
 		}
 	}
 
+	logrus.Info("newimagedestination")
+
 	publicDest, err := destRef.NewImageDestination(ctx, options.DestinationCtx)
 	if err != nil {
 		return nil, fmt.Errorf("initializing destination %s: %w", transports.ImageName(destRef), err)
 	}
+	logrus.Info("frompublic")
 	dest := imagedestination.FromPublic(publicDest)
 	defer safeClose("dest", dest)
 
+	logrus.Info("newimagesource")
 	publicRawSource, err := srcRef.NewImageSource(ctx, options.SourceCtx)
 	if err != nil {
 		return nil, fmt.Errorf("initializing source %s: %w", transports.ImageName(srcRef), err)
 	}
+	logrus.Info("frompublicsrc")
 	rawSource := imagesource.FromPublic(publicRawSource)
 	defer safeClose("src", rawSource)
 
@@ -256,10 +262,13 @@ func Image(ctx context.Context, policyContext *signature.PolicyContext, destRef,
 		blobInfoCache: internalblobinfocache.FromBlobInfoCache(blobinfocache.DefaultCache(options.DestinationCtx)),
 	}
 	defer c.close()
+	logrus.Info("will open blobinfocache")
 	c.blobInfoCache.Open()
+	logrus.Info("opened blobinfocache")
 	defer c.blobInfoCache.Close()
 
 	// Set the concurrentBlobCopiesSemaphore if we can copy layers in parallel.
+	logrus.Infof("destHasThreadSafePutBlob: %v, rawSourceHasThreadSafeGetBlob: %v", dest.HasThreadSafePutBlob(), rawSource.HasThreadSafeGetBlob())
 	if dest.HasThreadSafePutBlob() && rawSource.HasThreadSafeGetBlob() {
 		c.concurrentBlobCopiesSemaphore = c.options.ConcurrentBlobCopiesSemaphore
 		if c.concurrentBlobCopiesSemaphore == nil {
@@ -278,6 +287,7 @@ func Image(ctx context.Context, policyContext *signature.PolicyContext, destRef,
 			defer c.options.ConcurrentBlobCopiesSemaphore.Release(1)
 		}
 	}
+	logrus.Info("setup signers")
 
 	if err := c.setupSigners(); err != nil {
 		return nil, err
@@ -289,6 +299,7 @@ func Image(ctx context.Context, policyContext *signature.PolicyContext, destRef,
 	}
 
 	if !multiImage {
+		logrus.Info("single image")
 		if len(options.EnsureCompressionVariantsExist) > 0 {
 			return nil, fmt.Errorf("EnsureCompressionVariantsExist is not implemented when not creating a multi-architecture image")
 		}
@@ -301,6 +312,7 @@ func Image(ctx context.Context, policyContext *signature.PolicyContext, destRef,
 		if err != nil {
 			return nil, err
 		}
+		logrus.Info("copied single image")
 		copiedManifest = single.manifest
 	} else if c.options.ImageListSelection == CopySystemImage {
 		if len(options.EnsureCompressionVariantsExist) > 0 {
