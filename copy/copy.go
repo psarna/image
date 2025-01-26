@@ -256,10 +256,13 @@ func Image(ctx context.Context, policyContext *signature.PolicyContext, destRef,
 		blobInfoCache: internalblobinfocache.FromBlobInfoCache(blobinfocache.DefaultCache(options.DestinationCtx)),
 	}
 	defer c.close()
+	logrus.Info("will open blobinfocache")
 	c.blobInfoCache.Open()
+	logrus.Info("opened blobinfocache")
 	defer c.blobInfoCache.Close()
 
 	// Set the concurrentBlobCopiesSemaphore if we can copy layers in parallel.
+	logrus.Infof("destHasThreadSafePutBlob: %v, rawSourceHasThreadSafeGetBlob: %v", dest.HasThreadSafePutBlob(), rawSource.HasThreadSafeGetBlob())
 	if dest.HasThreadSafePutBlob() && rawSource.HasThreadSafeGetBlob() {
 		c.concurrentBlobCopiesSemaphore = c.options.ConcurrentBlobCopiesSemaphore
 		if c.concurrentBlobCopiesSemaphore == nil {
@@ -278,6 +281,7 @@ func Image(ctx context.Context, policyContext *signature.PolicyContext, destRef,
 			defer c.options.ConcurrentBlobCopiesSemaphore.Release(1)
 		}
 	}
+	logrus.Info("setup signers")
 
 	if err := c.setupSigners(); err != nil {
 		return nil, err
@@ -289,6 +293,7 @@ func Image(ctx context.Context, policyContext *signature.PolicyContext, destRef,
 	}
 
 	if !multiImage {
+		logrus.Info("single image")
 		if len(options.EnsureCompressionVariantsExist) > 0 {
 			return nil, fmt.Errorf("EnsureCompressionVariantsExist is not implemented when not creating a multi-architecture image")
 		}
@@ -301,6 +306,7 @@ func Image(ctx context.Context, policyContext *signature.PolicyContext, destRef,
 		if err != nil {
 			return nil, err
 		}
+		logrus.Info("copied single image")
 		copiedManifest = single.manifest
 	} else if c.options.ImageListSelection == CopySystemImage {
 		if len(options.EnsureCompressionVariantsExist) > 0 {

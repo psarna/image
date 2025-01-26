@@ -510,10 +510,12 @@ func (ic *imageCopier) copyLayers(ctx context.Context) ([]compressiontypes.Algor
 		defer copyGroup.Wait()
 
 		for i, srcLayer := range srcInfos {
+			logrus.Info("getting semaphore")
 			if err := ic.c.concurrentBlobCopiesSemaphore.Acquire(ctx, 1); err != nil {
 				// This can only fail with ctx.Err(), so no need to blame acquiring the semaphore.
 				return fmt.Errorf("copying layer: %w", err)
 			}
+			logrus.Info("got semaphore")
 			copyGroup.Add(1)
 			go copyLayerHelper(i, srcLayer, layersToEncrypt.Contains(i), progressPool, ic.c.rawSource.Reference().DockerReference())
 		}
